@@ -6,31 +6,41 @@ on:
 
 jobs:
   build:
-    runs-on: [ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
-       - name: Checkout source
-         uses: actions/checkout@v3
-       - name: Setup Java
-         uses: actions/setup-java@v3
-         with:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
           distribution: 'temurin'
           java-version: '17'
-       - name: Build Project
-         run: mvn clean install -DskipTests
-       - name: Login to docker hub
-         run: docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}
-       - name: Build docker image
-         run: docker build -t ellen05/springboot-example
-       - name: Publish image to docker hub
-         run: docker push ellen05/springboot-example:latest
+
+      - name: Build Project
+        run: ./gradlew build -x test
+
+      - name: Login to Docker Hub
+        run: docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}
+
+      - name: Build Docker Image
+        run: docker build -t ellen05/springboot-example .
+
+      - name: Publish Image to Docker Hub
+        run: docker push ellen05/springboot-example:latest
 
   deploy:
     needs: build
-    runs-on: [aws-ec2]
+    runs-on: ubuntu-latest
     steps:
-      - name: Run image from docker hub
+      - name: Login to Docker Hub
+        run: docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}
+
+      - name: Pull Docker Image
         run: docker pull ellen05/springboot-example:latest
-      - name: Delete old container
-        run: docker rm -f springboot-example-container
-      - name: Run docker container
+
+      - name: Stop Old Container
+        run: docker rm -f springboot-example-container || true
+
+      - name: Run Docker Container
         run: docker run -d -p 8080:8080 --name springboot-example-container ellen05/springboot-example:latest
